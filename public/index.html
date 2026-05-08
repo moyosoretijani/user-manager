@@ -1,57 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mubarak's Pro Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding-top: 50px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .container { max-width: 650px; }
+        .user-card { border-left: 5px solid #0d6efd; transition: 0.3s; }
+        .user-card:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important; }
+    </style>
+</head>
+<body>
+
 <div class="container">
     <div class="card shadow-lg border-0 p-4">
-        <h2 class="text-center mb-4 fw-bold">User Directory</h2>
+        <h2 class="text-center mb-4 fw-bold text-primary">School Directory</h2>
+        
         <div class="row g-2 mb-4">
-            <div class="col-md-5"><input type="text" id="nameIn" class="form-control" placeholder="Name"></div>
+            <div class="col-md-5"><input type="text" id="nameIn" class="form-control" placeholder="Full Name"></div>
             <div class="col-md-5"><input type="text" id="roleIn" class="form-control" placeholder="Role"></div>
-            <div class="col-md-2"><button onclick="addUser()" class="btn btn-primary w-100">Add</button></div>
+            <div class="col-md-2"><button onclick="addUser()" class="btn btn-primary w-100 fw-bold">Add</button></div>
         </div>
+
         <div id="userList"></div>
     </div>
 </div>
 
 <script>
     async function loadUsers() {
-        const res = await fetch('/api/users');
-        if (!res.ok) return console.error("Server is having issues");
-        
-        const users = await res.json();
-        const list = document.getElementById('userList');
-        list.innerHTML = '';
+        try {
+            const res = await fetch('/api/users');
+            const users = await res.json();
+            const list = document.getElementById('userList');
+            list.innerHTML = '';
 
-        users.forEach(user => {
-            list.innerHTML += `
-                <div class="card user-card mb-2 p-3 border-0 shadow-sm bg-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div><h6 class="mb-0 fw-bold">${user.name}</h6><small class="text-muted">${user.role}</small></div>
-                        <div>
-                            <button onclick="editUser('${user.id}', '${user.name}', '${user.role}')" class="btn btn-sm btn-outline-primary">Edit</button>
-                            <button onclick="deleteUser('${user.id}')" class="btn btn-sm btn-outline-danger">Delete</button>
+            users.forEach(user => {
+                list.innerHTML += `
+                    <div class="card user-card mb-3 p-3 border-0 shadow-sm bg-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0 fw-bold text-dark">${user.name}</h6>
+                                <span class="badge bg-light text-primary border">${user.role}</span>
+                            </div>
+                            <div class="btn-group">
+                                <button onclick="editUser('${user.id}', '${user.name}', '${user.role}')" class="btn btn-sm btn-outline-primary px-3">Edit</button>
+                                <button onclick="deleteUser('${user.id}')" class="btn btn-sm btn-outline-danger px-3">Delete</button>
+                            </div>
                         </div>
-                    </div>
-                </div>`;
-        });
+                    </div>`;
+            });
+        } catch (err) {
+            console.error("Failed to load users:", err);
+        }
     }
 
     async function addUser() {
         const name = document.getElementById('nameIn').value;
         const role = document.getElementById('roleIn').value;
-        if(!name || !role) return alert("Fill all fields");
+        if(!name || !role) return alert("Please fill in both fields");
 
-        await fetch('/api/users', {
+        const res = await fetch('/api/users', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ name, role })
         });
         
-        document.getElementById('nameIn').value = '';
-        document.getElementById('roleIn').value = '';
-        loadUsers(); 
+        if (res.ok) {
+            document.getElementById('nameIn').value = '';
+            document.getElementById('roleIn').value = '';
+            loadUsers();
+        } else {
+            alert("Error adding user. Check server logs.");
+        }
     }
 
     async function editUser(id, oldN, oldR) {
-        const name = prompt("Edit Name:", oldN);
-        const role = prompt("Edit Role:", oldR);
+        const name = prompt("Enter new name:", oldN);
+        const role = prompt("Enter new role:", oldR);
         if(!name || !role) return;
 
         await fetch(`/api/users/${id}`, {
@@ -71,3 +98,5 @@
 
     loadUsers();
 </script>
+</body>
+</html>
