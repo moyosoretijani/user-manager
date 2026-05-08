@@ -1,100 +1,71 @@
-
 const express = require('express');
-const fs = require('fs');
+const mongoose = require('mongoose');
 const app = express();
 const port = process.env.PORT || 3000;
-const mongoose = require('mongoose');
 
-// Replace <password> with the password you created for the database user
+// --- MIDDLEWARE ---
+// This line is VITAL for HTML forms to work!
+app.use(express.urlencoded({ extended: true })); 
+app.use(express.json());
+app.use(express.static('public'));
+app.set('view engine', 'ejs'); // Ensure EJS is set
+
+// --- DATABASE CONNECTION ---
 const dbURI = process.env.MONGODB_URI;
 
 mongoose.connect(dbURI)
-  .then(() => console.log('Connected to School Database!'))
-  .catch((err) => console.log(err));
-  const studentSchema = new mongoose.Schema({
-    fullName: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    studentId: { type: String, required: true, unique: true },
-    status: { type: String, default: 'Pending' }, // 'Pending', 'Approved', or 'Suspended'
+  .then(() => console.log('✅ Connected to School Database!'))
+  .catch((err) => console.error('❌ DB Connection Error:', err));
+
+// --- SCHEMA ---
+const studentSchema = new mongoose.Schema({
+    fullName: String,
+    role: String,
     dateJoined: { type: Date, default: Date.now }
 });
 
 const Student = mongoose.model('Student', studentSchema);
-app.use(express.json());
-app.use(express.static('public'));
-
-// --- DATABASE HELPERS ---
-const getUsersFromFile = () => {
-    try {
-        const data = fs.readFileSync('./data.json', 'utf8');
-        return JSON.parse(data);
-    } catch (err) {
-        return []; 
-    }
-};
-
-const saveUsersToFile = (users) => {
-    fs.writeFileSync('./data.json', JSON.stringify(users, null, 2));
-};
-
-// --- SECURITY MIDDLEWARE ---
-const adminOnly = (req, res, next) => {
-    const password = req.query.pass; 
-    if (password === 'mubarak123') {
-        next(); 
-    } else {
-        res.status(403).json({ error: "Access Denied: Wrong Password" });
-    }
-};
 
 // --- ROUTES ---
 
-// 1. GET ALL
-app.get('/api/users', (req, res) => {
-    res.json(getUsersFromFile());
+// 1. GET ALL (The HTML needs this to display the list)
+app.get('/api/users', async (req, res) => {
+    try {
+        const students = await Student.find();
+        // We map MongoDB's 'fullName' back to 'name' so your HTML script works
+        const formattedUsers = students.map(s => ({
+            id: s._id,
+            name: s.fullName, 
+            role: s.role
+        }));
+        res.json(formattedUsers);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch" });
+    }
 });
 
-// 2. CREATE
-app.post('/add-user', async (req, res) => {
+// 2. CREATE (The HTML 'addUser' function calls this)
+app.post('/api/users', async (req, res) => {
     try {
         const newStudent = new Student({
-            fullName: req.body.name,
-            email: req.body.email,
-            studentId: `SCH-${Math.floor(1000 + Math.random() * 9000)}` // Generates a random School ID
+            fullName: req.body.name, // Matches 'name' from your HTML script
+            role: req.body.role
         });
-
         await newStudent.save();
-        res.redirect('/');
+        res.json({ success: true });
     } catch (err) {
-        console.error(err);
-        res.status(500).send("Error saving student to database.");
+        res.status(500).json({ error: "Save failed" });
     }
 });
 
-// 3. UPDATE
-app.put('/api/users/:id', (req, res) => {
-    const userId = parseInt(req.params.id);
-    const { name, role } = req.body;
-    let users = getUsersFromFile();
-    const index = users.findIndex(u => u.id === userId);
-
-    if (index !== -1) {
-        users[index].name = name || users[index].name;
-        users[index].role = role || users[index].role;
-        saveUsersToFile(users);
-        res.json(users[index]);
-    } else {
-        res.status(404).json({ error: "User not found" });
+// 3. DELETE (Using MongoDB ID)
+app.get('/api/users/delete/:id', adminOnly, async (req, res) => {
+    try {
+        await Student.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: "Delete failed" });
     }
-});
-
-// 4. DELETE
-app.get('/api/users/delete/:id', adminOnly, (req, res) => {
-    const userId = parseInt(req.params.id);
-    let users = getUsersFromFile();
-    const filteredUsers = users.filter(u => u.id !== userId);
-    saveUsersToFile(filteredUsers);
-    res.json({ success: true, message: "Deleted successfully" });
 });
 
 // --- START SERVER ---
