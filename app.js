@@ -7,49 +7,61 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
 
-const dbURI = process.env.MONGODB_URI;
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('✅ Connected!'))
+  .catch(err => console.error('❌ Connection Error:', err));
 
-mongoose.connect(dbURI)
-  .then(() => console.log('✅ Connected to School Database!'))
-  .catch((err) => console.error('❌ Connection Error:', err));
-
-const studentSchema = new mongoose.Schema({
+const Student = mongoose.model('Student', new mongoose.Schema({
     fullName: String,
     role: String
-});
-const Student = mongoose.model('Student', studentSchema);
+}));
 
-const adminOnly = (req, res, next) => {
-    if (req.query.pass === 'mubarak123') return next();
-    res.status(403).json({ error: "Access Denied" });
-};
-
-// GET ALL
+// API: GET ALL
 app.get('/api/users', async (req, res) => {
-    const students = await Student.find();
-    res.json(students.map(s => ({ id: s._id, name: s.fullName, role: s.role })));
+    try {
+        const students = await Student.find();
+        // The .map() ensures we only send clean data to the frontend
+        const cleanData = students.map(s => ({
+            id: s._id,
+            name: s.fullName || "Unnamed",
+            role: s.role || "No Role"
+        }));
+        res.json(cleanData);
+    } catch (err) {
+        console.error("GET Error:", err);
+        res.status(500).json({ error: "Server Crash" });
+    }
 });
 
-// CREATE
+// API: CREATE
 app.post('/api/users', async (req, res) => {
-    const newStudent = new Student({ fullName: req.body.name, role: req.body.role });
-    await newStudent.save();
-    res.json({ success: true });
+    try {
+        const newStudent = new Student({ fullName: req.body.name, role: req.body.role });
+        await newStudent.save();
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: "Save Failed" });
+    }
 });
 
-// UPDATE
+// API: UPDATE (For the Edit button)
 app.put('/api/users/:id', async (req, res) => {
-    await Student.findByIdAndUpdate(req.params.id, { 
-        fullName: req.body.name, 
-        role: req.body.role 
-    });
-    res.json({ success: true });
+    try {
+        await Student.findByIdAndUpdate(req.params.id, { 
+            fullName: req.body.name, 
+            role: req.body.role 
+        });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: "Update Failed" });
+    }
 });
 
-// DELETE
-app.get('/api/users/delete/:id', adminOnly, async (req, res) => {
+// API: DELETE
+app.get('/api/users/delete/:id', async (req, res) => {
+    if (req.query.pass !== 'mubarak123') return res.status(403).send("Wrong Pass");
     await Student.findByIdAndDelete(req.params.id);
     res.json({ success: true });
 });
 
-app.listen(port, () => console.log(`🚀 Server running on ${port}`));
+app.listen(port, () => console.log(`🚀 Live on ${port}`));
