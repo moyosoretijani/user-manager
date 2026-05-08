@@ -51,7 +51,7 @@ app.post('/api/users', async (req, res) => {
     } catch (err) {
         console.error("SAVE ERROR:", err); // This will show in Render logs
         res.status(500).json({ error: err.message });
-});
+};
 
 // PUT: Edit existing user
 app.put('/api/users/:id', async (req, res) => {
