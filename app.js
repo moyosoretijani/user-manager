@@ -4,11 +4,9 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // --- MIDDLEWARE ---
-// This line is VITAL for HTML forms to work!
 app.use(express.urlencoded({ extended: true })); 
 app.use(express.json());
 app.use(express.static('public'));
-app.set('view engine', 'ejs'); // Ensure EJS is set
 
 // --- DATABASE CONNECTION ---
 const dbURI = process.env.MONGODB_URI;
@@ -17,7 +15,7 @@ mongoose.connect(dbURI)
   .then(() => console.log('✅ Connected to School Database!'))
   .catch((err) => console.error('❌ DB Connection Error:', err));
 
-// --- SCHEMA ---
+// --- SCHEMA & MODEL ---
 const studentSchema = new mongoose.Schema({
     fullName: String,
     role: String,
@@ -26,39 +24,49 @@ const studentSchema = new mongoose.Schema({
 
 const Student = mongoose.model('Student', studentSchema);
 
-// --- ROUTES ---
+// --- SECURITY MIDDLEWARE ---
+const adminOnly = (req, res, next) => {
+    const password = req.query.pass; 
+    if (password === 'mubarak123') {
+        next(); 
+    } else {
+        res.status(403).json({ error: "Access Denied" });
+    }
+};
 
-// 1. GET ALL (The HTML needs this to display the list)
+// --- API ROUTES ---
+
+// 1. GET ALL USERS (Called by loadUsers() in HTML)
 app.get('/api/users', async (req, res) => {
     try {
         const students = await Student.find();
-        // We map MongoDB's 'fullName' back to 'name' so your HTML script works
-        const formattedUsers = students.map(s => ({
+        // Map _id to id so your frontend script stays the same
+        const formatted = students.map(s => ({
             id: s._id,
-            name: s.fullName, 
+            name: s.fullName,
             role: s.role
         }));
-        res.json(formattedUsers);
+        res.json(formatted);
     } catch (err) {
-        res.status(500).json({ error: "Failed to fetch" });
+        res.status(500).json({ error: "Failed to fetch users" });
     }
 });
 
-// 2. CREATE (The HTML 'addUser' function calls this)
+// 2. CREATE USER (Called by addUser() in HTML)
 app.post('/api/users', async (req, res) => {
     try {
         const newStudent = new Student({
-            fullName: req.body.name, // Matches 'name' from your HTML script
+            fullName: req.body.name,
             role: req.body.role
         });
         await newStudent.save();
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: "Save failed" });
+        res.status(500).json({ error: "Failed to save user" });
     }
 });
 
-// 3. DELETE (Using MongoDB ID)
+// 3. DELETE USER
 app.get('/api/users/delete/:id', adminOnly, async (req, res) => {
     try {
         await Student.findByIdAndDelete(req.params.id);
