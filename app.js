@@ -49,8 +49,8 @@ app.post('/api/users', async (req, res) => {
         await newStudent.save();
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: "Save failed" });
-    }
+        console.error("SAVE ERROR:", err); // This will show in Render logs
+        res.status(500).json({ error: err.message });
 });
 
 // PUT: Edit existing user
