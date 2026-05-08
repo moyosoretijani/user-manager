@@ -76,5 +76,9 @@ app.get('/api/users/delete/:id', async (req, res) => {
         res.status(500).send("Delete error");
     }
 });
+// ... (your routes above)
 
-app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
+// --- START SERVER ---
+app.listen(port, () => {
+    console.log(`🚀 Server running on port ${port}`);
+});
