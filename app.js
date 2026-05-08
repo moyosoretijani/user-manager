@@ -1,8 +1,25 @@
+
 const express = require('express');
 const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 3000;
+const mongoose = require('mongoose');
 
+// Replace <password> with the password you created for the database user
+const dbURI = process.env.MONGODB_URI;
+
+mongoose.connect(dbURI)
+  .then(() => console.log('Connected to School Database!'))
+  .catch((err) => console.log(err));
+  const studentSchema = new mongoose.Schema({
+    fullName: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    studentId: { type: String, required: true, unique: true },
+    status: { type: String, default: 'Pending' }, // 'Pending', 'Approved', or 'Suspended'
+    dateJoined: { type: Date, default: Date.now }
+});
+
+const Student = mongoose.model('Student', studentSchema);
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -38,19 +55,20 @@ app.get('/api/users', (req, res) => {
 });
 
 // 2. CREATE
-app.post('/api/users', (req, res) => {
-    const { name, role } = req.body;
-    if (!name || !role) return res.status(400).json({ error: "Name and Role required" });
+app.post('/add-user', async (req, res) => {
+    try {
+        const newStudent = new Student({
+            fullName: req.body.name,
+            email: req.body.email,
+            studentId: `SCH-${Math.floor(1000 + Math.random() * 9000)}` // Generates a random School ID
+        });
 
-    const users = getUsersFromFile();
-    const newUser = {
-        id: users.length > 0 ? users[users.length - 1].id + 1 : 1,
-        name,
-        role
-    };
-    users.push(newUser);
-    saveUsersToFile(users);
-    res.status(201).json(newUser);
+        await newStudent.save();
+        res.redirect('/');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Error saving student to database.");
+    }
 });
 
 // 3. UPDATE
