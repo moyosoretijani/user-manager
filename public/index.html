@@ -8,22 +8,19 @@
     <style>
         body { background-color: #f0f2f5; padding-top: 50px; }
         .container { max-width: 600px; }
-        .user-card { border-left: 5px solid #0d6efd; transition: 0.2s; }
-        .user-card:hover { transform: scale(1.01); }
+        .user-card { border-left: 5px solid #0d6efd; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="card shadow-lg border-0 p-4">
-        <h2 class="text-center mb-4 fw-bold">School Directory</h2>
-        
+        <h2 class="text-center mb-4 fw-bold">User Directory</h2>
         <div class="row g-2 mb-4">
-            <div class="col-md-5"><input type="text" id="nameIn" class="form-control" placeholder="Full Name"></div>
-            <div class="col-md-5"><input type="text" id="roleIn" class="form-control" placeholder="Role (e.g. Student)"></div>
+            <div class="col-md-5"><input type="text" id="nameIn" class="form-control" placeholder="Name"></div>
+            <div class="col-md-5"><input type="text" id="roleIn" class="form-control" placeholder="Role"></div>
             <div class="col-md-2"><button onclick="addUser()" class="btn btn-primary w-100">Add</button></div>
         </div>
-
         <div id="userList"></div>
     </div>
 </div>
@@ -41,6 +38,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div><h6 class="mb-0 fw-bold">${user.name}</h6><small class="text-muted">${user.role}</small></div>
                         <div>
+                            <button onclick="editUser('${user.id}', '${user.name}', '${user.role}')" class="btn btn-sm btn-outline-primary">Edit</button>
                             <button onclick="deleteUser('${user.id}')" class="btn btn-sm btn-outline-danger">Delete</button>
                         </div>
                     </div>
@@ -51,30 +49,37 @@
     async function addUser() {
         const name = document.getElementById('nameIn').value;
         const role = document.getElementById('roleIn').value;
-        if(!name || !role) return alert("Please fill all fields");
+        if(!name || !role) return;
 
-        const res = await fetch('/api/users', {
+        await fetch('/api/users', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ name, role })
         });
         
-        if(res.ok) {
-            document.getElementById('nameIn').value = '';
-            document.getElementById('roleIn').value = '';
-            loadUsers();
-        }
+        document.getElementById('nameIn').value = '';
+        document.getElementById('roleIn').value = '';
+        loadUsers(); // This refreshes the list so you can add more!
+    }
+
+    async function editUser(id, oldN, oldR) {
+        const name = prompt("New Name:", oldN);
+        const role = prompt("New Role:", oldR);
+        if(!name || !role) return;
+
+        await fetch(`/api/users/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name, role })
+        });
+        loadUsers();
     }
 
     async function deleteUser(id) {
-        const userInput = prompt("Enter Admin Password to delete:");
-        const res = await fetch(`/api/users/delete/${id}?pass=${userInput}`);
-        
-        if (res.status === 403) {
-            alert("⛔ Wrong Password!");
-        } else {
-            loadUsers();
-        }
+        const pass = prompt("Admin Password:");
+        const res = await fetch(`/api/users/delete/${id}?pass=${pass}`);
+        if (res.ok) loadUsers();
+        else alert("Wrong password");
     }
 
     loadUsers();
